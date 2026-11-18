@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Next Value Predictor – RNN vs LSTM vs GRU</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--text:#1c2030;--muted:#6b7280;--accent:#4f46e5;--border:#e5e7eb;--good:#16a34a}
+  @media (prefers-color-scheme:dark){:root{--bg:#0f1220;--card:#181c2f;--text:#eef0f8;--muted:#9aa3b8;--accent:#818cf8;--border:#2a3050;--good:#4ade80}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);display:flex;justify-content:center;padding:24px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:520px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 20px;font-size:.95rem}
+  .row{display:flex;gap:10px}
+  input{flex:1;min-width:0;padding:12px;font-size:1.05rem;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text)}
+  button{width:100%;margin-top:14px;padding:13px;font-size:1rem;font-weight:600;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+  button:disabled{opacity:.6}
+  .res{margin-top:20px;display:grid;gap:10px}
+  .m{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid var(--border);border-radius:12px}
+  .m.best{border-color:var(--good)}
+  .m b{font-size:1.2rem}
+  .tag{font-size:.75rem;color:var(--good);margin-left:8px}
+  .small{color:var(--muted);font-size:.8rem}
+  .err{color:#dc2626;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Next Value Predictor</h1>
+  <p class="sub">Enter 3 consecutive values (daily temperature in °C, e.g. 25, 26, 27). RNN, LSTM and GRU predict the next one.</p>
+  <div class="row">
+    <input id="v1" type="number" step="any" value="22" aria-label="Value 1">
+    <input id="v2" type="number" step="any" value="24" aria-label="Value 2">
+    <input id="v3" type="number" step="any" value="26" aria-label="Value 3">
+  </div>
+  <button id="go">Predict next value</button>
+  <div id="out"></div>
+</div>
+<script>
+const go = document.getElementById('go'), out = document.getElementById('out');
+go.onclick = async () => {
+  const values = ['v1','v2','v3'].map(id => parseFloat(document.getElementById(id).value));
+  if (values.some(isNaN)) { out.innerHTML = '<div class="err">Please enter all 3 numbers.</div>'; return; }
+  go.disabled = true; out.innerHTML = '';
+  try {
+    const r = await fetch('/api/predict', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Request failed');
+    out.innerHTML = '<div class="res">' + ['rnn','lstm','gru'].map(k =>
+      `<div class="m ${k===d.best?'best':''}"><span>${k.toUpperCase()}${k===d.best?'<span class="tag">best (lowest RMSE)</span>':''}<br><span class="small">test RMSE ${d.rmse[k].toFixed(3)}</span></span><b>${d.predictions[k].toFixed(2)}</b></div>`
+    ).join('') + '</div>';
+  } catch (e) { out.innerHTML = '<div class="err">' + e.message + '</div>'; }
+  go.disabled = false;
+};
+</script>
+</body>
+</html>
